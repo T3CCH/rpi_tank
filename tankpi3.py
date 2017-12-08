@@ -9,6 +9,7 @@ import sys
 import time
 import ThunderBorg
 import pygame
+import Adafruit_PCA9685
 
 # Re-direct our output to standard error, we need to ignore standard out to hide some nasty print statements from pygame
 sys.stdout = sys.stderr
