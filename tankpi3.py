@@ -67,31 +67,49 @@ buttonTriangleDown = 12
 buttonXUp = 14
 
 # Variables to initialize the servos with
-camXaxis = 0.05  # intended start point for the servos
-camYaxis = 0.05
-boomYaxis = 0.05
-servoNudge = 0.0004  # Amount for the servos to move
-# CHANGE these to use different GPIO Pins
-boomservo = 17
-servoXaxis = 22
-servoYaxis = 27
+camXaxis = 225  # intended start point for the servos
+camYaxis = 225
+boomYaxis = 225
+servoNudge = 2  # Amount for the servos to move
+
 # Travel Limits - Adjust these to set the physical endpoints on the servos
-camservoXHigh = .0999
-camservoXLow = .02
-camservoYHigh = .0999
-camservoYLow = .02
-boomservoYHigh = .0999
-boomservoYLow = .04
+camservoXHigh = 600
+camservoXLow = 150
+camservoYHigh = 600
+camservoYLow = 150
+boomservoYHigh = 600
+boomservoYLow = 150
+# Servo locations on the board 0-15 are acceptable
+boomservo = 12
+camservoX = 13
+camservoY = 14
 
 # initialize servos turn on then set starting point
-f = open('/dev/pi-blaster', 'w')
-f.write('%s=1\n' % boomservo)
-f.write('%s=1\n' % servoXaxis)
-f.write('%s=1\n' % servoYaxis)
-f.write('%s=%s\n' % (boomservo, boomYaxis))
-f.write('%s=%s\n' % (servoXaxis, camXaxis))
-f.write('%s=%s\n' % (servoYaxis, camYaxis))
-f.close()
+# Uncomment to enable debug output.
+# import logging
+# logging.basicConfig(level=logging.DEBUG)
+
+# Initialise the PCA9685 using the default address (0x40).
+pwm = Adafruit_PCA9685.PCA9685()
+
+
+# Alternatively specify a different address and/or bus:
+# pwm = Adafruit_PCA9685.PCA9685(address=0x41, busnum=2)
+
+# Helper function to make setting a servo pulse width simpler.
+def set_servo_pulse(channel, pulse):
+    pulse_length = 1000000  # 1,000,000 us per second
+    pulse_length //= 60  # 60 Hz
+    print('{0}us per period'.format(pulse_length))
+    pulse_length //= 4096  # 12 bits of resolution
+    print('{0}us per bit'.format(pulse_length))
+    pulse *= 1000
+    pulse //= pulse_length
+    pwm.set_pwm(channel, 0, pulse)
+
+
+# Set frequency to 60hz, good for servos.
+pwm.set_pwm_freq(60)
 
 # Power settings
 voltageIn = 16.8  # Total battery voltage to the ThunderBorg
@@ -151,6 +169,11 @@ print 'Joystick found'
 joystick.init()
 TB.SetLedShowBattery(True)
 ledBatteryMode = True
+# Set servos to default start positions
+pwm.set_pwm(camservoX, 0, camXaxis)
+pwm.set_pwm(camservoY, 0, camYaxis)
+pwm.set_pwm(boomservo, 0, boomYaxis)
+
 try:
     print 'Press CTRL+C to quit'
     driveLeft = 0.0
@@ -205,59 +228,45 @@ try:
                 if joystick.get_button(buttonXUp):
                     if boomYaxis <= boomservoYHigh:
                         boomYaxis = boomYaxis + servoNudge
-                        f = open('/dev/pi-blaster', 'w')
-                        f.write('%s=%s\n' % (boomservo, boomYaxis))
-                        f.close()
+                        pwm.set_pwm(boomservo, 0, boomYaxis)
                         print(boomYaxis)
                         # time.sleep (.5)
                 if joystick.get_button(buttonTriangleDown):
                     if boomYaxis >= boomservoYLow:
                         boomYaxis = boomYaxis - servoNudge
-                        f = open('/dev/pi-blaster', 'w')
-                        f.write('%s=%s\n' % (boomservo, boomYaxis))
-                        f.close()
+                        pwm.set_pwm(boomservo, 0, boomYaxis)
                         print(boomYaxis)
                         # time.sleep (.5)
                 # Check for Camera Y Axis Command button presses
                 if joystick.get_button(dpadDOWN):
                     if camYaxis <= camservoYHigh:
                         camYaxis = camYaxis + servoNudge
-                        f = open('/dev/pi-blaster', 'w')
-                        f.write('%s=%s\n' % (servoYaxis, camYaxis))
-                        f.close()
+                        pwm.set_pwm(camservoY, 0, camYaxis)
                         print(camYaxis)
                 if joystick.get_button(dpadUP):
                     if camYaxis >= camservoYLow:
                         camYaxis = camYaxis - servoNudge
-                        f = open('/dev/pi-blaster', 'w')
-                        f.write('%s=%s\n' % (servoYaxis, camYaxis))
-                        f.close()
+                        pwm.set_pwm(camservoY, 0, camYaxis)
                         print(camYaxis)
                 # Check for Camera X Axis Command button presses
                 if joystick.get_button(dpadLEFT):
                     if camXaxis <= camservoXHigh:
                         camXaxis = camXaxis + servoNudge
-                        f = open('/dev/pi-blaster', 'w')
-                        f.write('%s=%s\n' % (servoXaxis, camXaxis))
-                        f.close()
+                        pwm.set_pwm(camservoX, 0, camXaxis)
                         print(camXaxis)
                 if joystick.get_button(dpadRIGHT):
                     if camXaxis >= camservoXLow:
                         camXaxis = camXaxis - servoNudge
-                        f = open('/dev/pi-blaster', 'w')
-                        f.write('%s=%s\n' % (servoXaxis, camXaxis))
-                        f.close()
+                        pwm.set_pwm(camservoX, 0, camXaxis)
                         print(camXaxis)
                 # Re-center the camera based on the travel limits
                 if joystick.get_button(buttonCircleCamCenter):
-                        camXaxis = ((camservoXHigh - camservoXLow) / 2) + camservoXLow
-                        camYaxis = ((camservoYHigh - camservoYLow) / 2) + camservoYLow
-                        f = open('/dev/pi-blaster', 'w')
-                        f.write('%s=%s\n' % (servoXaxis, camXaxis))
-                        f.write('%s=%s\n' % (servoYaxis, camYaxis))
-                        f.close()
-                        print(camXaxis)
-                        print(camYaxis)
+                    camXaxis = ((camservoXHigh - camservoXLow) / 2) + camservoXLow
+                    camYaxis = ((camservoYHigh - camservoYLow) / 2) + camservoYLow
+                    pwm.set_pwm(camservoX, 0, camXaxis)
+                    pwm.set_pwm(camservoY, 0, camYaxis)
+                    print(camXaxis)
+                    print(camYaxis)
                 # Check for shutdown button combinations
                 if joystick.get_button(psButton):
                     if joystick.get_button(leftShoulder) and joystick.get_button(rightShoulder):
